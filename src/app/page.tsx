@@ -26,7 +26,7 @@ export default function PublicDashboard() {
 
       return {
         id: p.id,
-        name: p.public_name || 'Projeto Secreto',
+        name: p.public_name || 'Secret Project',
         niche: p.kanban_clients?.industry_name || 'Tech',
         progress
       };
@@ -40,12 +40,11 @@ export default function PublicDashboard() {
       .order('created_at', { ascending: false })
       .limit(8);
 
-    // Abstract the details. In a real scenario we'd use robust logic, here we just replace quotes.
+    // Abstract the details.
     const anonActivity = (aData || []).map(a => {
       let text = a.details;
-      // Very basic anonymization for demonstration purposes
-      if (a.action === 'card_moved') text = 'Progresso feito em uma tarefa';
-      if (a.action === 'card_created') text = 'Nova funcionalidade adicionada ao escopo';
+      if (a.action === 'card_moved') text = 'Progress made on a task';
+      if (a.action === 'card_created') text = 'New feature added to the scope';
       return { ...a, details: text };
     });
     setActivity(anonActivity);
@@ -73,48 +72,48 @@ export default function PublicDashboard() {
       <nav className="public-nav">
         <div className="nav-logo">Kanban<span>K</span></div>
         <div className="nav-links">
-          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer">Portfólio</a>
+          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer">Portfolio</a>
           <a href="/login" className="login-link">Admin</a>
         </div>
       </nav>
 
       <main className="public-main">
         <header className="hero">
-          <div className="hero-badge">Em tempo real</div>
+          <div className="hero-badge">Live Tracking</div>
           <h1>What is Kaueramone<br /><span className="highlight">building right now?</span></h1>
-          <p>Acompanhe meu processo de desenvolvimento e os projetos que estão sendo forjados no momento. Transparência total no fluxo de trabalho.</p>
+          <p>Follow my development process and the projects currently being forged. Full transparency in the workflow.</p>
           <div className="hero-stats">
             <div className="stat-box">
               <h3>{stats.delivered}</h3>
-              <span>Projetos Entregues</span>
+              <span>Delivered Projects</span>
             </div>
             <div className="stat-box">
               <h3>{stats.tasks}</h3>
-              <span>Tarefas Concluídas</span>
+              <span>Completed Tasks</span>
             </div>
             <div className="stat-box">
               <h3>+50k</h3>
-              <span>Linhas de Código Escritas</span>
+              <span>Lines of Code Written</span>
             </div>
           </div>
         </header>
 
         <section className="dashboard-section">
           <div className="section-header">
-            <h2>Projetos Ativos no Forno</h2>
+            <h2>Active Projects in the Oven</h2>
             <div className="pulsing-dot" />
           </div>
 
           <div className="projects-grid">
             {projects.length === 0 ? (
-              <div className="empty-projects">Nenhum projeto público ativo no momento.</div>
+              <div className="empty-projects">No active public projects at the moment.</div>
             ) : projects.map(p => (
               <div key={p.id} className="pub-card">
                 <div className="pub-card-niche">{p.niche}</div>
                 <h3 className="pub-card-title">{p.name}</h3>
                 <div className="pub-card-progress">
                   <div className="progress-header">
-                    <span>Progresso de Desenvolvimento</span>
+                    <span>Development Progress</span>
                     <span>{p.progress}%</span>
                   </div>
                   <div className="progress-track">
@@ -127,11 +126,11 @@ export default function PublicDashboard() {
         </section>
 
         <section className="activity-section">
-          <h2>Feed de Atualizações</h2>
+          <h2>Activity Feed</h2>
           <div className="activity-list">
             {activity.map(a => (
               <div key={a.id} className="act-item">
-                <div className="act-time">{new Date(a.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="act-time">{new Date(a.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="act-line"><div className="act-dot" /></div>
                 <div className="act-text">{a.details}</div>
               </div>
@@ -140,14 +139,14 @@ export default function PublicDashboard() {
         </section>
 
         <section className="cta-section">
-          <h2>Quer ver o seu projeto aqui?</h2>
-          <p>Vamos transformar sua ideia em um sistema digital de excelência.</p>
-          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer" className="btn-glow">Iniciar Projeto</a>
+          <h2>Want to see your project here?</h2>
+          <p>Let's turn your idea into a digital system of excellence.</p>
+          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer" className="btn-glow">Start Project</a>
         </section>
       </main>
 
       <footer className="public-footer">
-        <p>© {new Date().getFullYear()} Kaueramone.dev. Todos os direitos reservados.</p>
+        <p>© {new Date().getFullYear()} Kaueramone.dev. All rights reserved.</p>
       </footer>
 
       <style jsx>{`
@@ -171,7 +170,7 @@ export default function PublicDashboard() {
           letter-spacing: -0.5px;
         }
         .nav-logo span {
-          color: #6366f1;
+          color: #22c55e;
         }
         .nav-links a {
           color: #a3a3a3;
@@ -197,15 +196,15 @@ export default function PublicDashboard() {
         .hero-badge {
           display: inline-block;
           padding: 6px 16px;
-          background: rgba(99, 102, 241, 0.1);
-          color: #818cf8;
+          background: rgba(34, 197, 94, 0.1);
+          color: #4ade80;
           border-radius: 100px;
           font-size: 12px;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 1px;
           margin-bottom: 24px;
-          border: 1px solid rgba(99, 102, 241, 0.2);
+          border: 1px solid rgba(34, 197, 94, 0.2);
         }
         .hero h1 {
           font-size: 56px;
@@ -215,7 +214,7 @@ export default function PublicDashboard() {
           letter-spacing: -1.5px;
         }
         .highlight {
-          background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+          background: linear-gradient(to right, #22c55e, #10b981, #047857);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
@@ -269,15 +268,15 @@ export default function PublicDashboard() {
         .pulsing-dot {
           width: 8px;
           height: 8px;
-          background: #10b981;
+          background: #22c55e;
           border-radius: 50%;
-          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
           animation: pulse 2s infinite;
         }
         @keyframes pulse {
-          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
         .projects-grid {
           display: grid;
@@ -295,13 +294,13 @@ export default function PublicDashboard() {
         }
         .pub-card:hover {
           transform: translateY(-4px);
-          border-color: rgba(99, 102, 241, 0.3);
+          border-color: rgba(34, 197, 94, 0.3);
         }
         .pub-card-niche {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          color: #a855f7;
+          color: #4ade80;
           font-weight: 700;
           margin-bottom: 8px;
         }
@@ -326,7 +325,7 @@ export default function PublicDashboard() {
         }
         .progress-fill {
           height: 100%;
-          background: linear-gradient(90deg, #6366f1, #a855f7);
+          background: linear-gradient(90deg, #22c55e, #10b981);
           border-radius: 4px;
           transition: width 1s ease-out;
         }
@@ -348,7 +347,7 @@ export default function PublicDashboard() {
         .act-time {
           color: #737373;
           font-size: 13px;
-          min-width: 120px;
+          min-width: 140px;
           text-align: right;
           padding-top: 2px;
         }
@@ -363,9 +362,9 @@ export default function PublicDashboard() {
           left: -4px;
           width: 10px;
           height: 10px;
-          background: #3b82f6;
+          background: #22c55e;
           border-radius: 50%;
-          box-shadow: 0 0 10px #3b82f6;
+          box-shadow: 0 0 10px #22c55e;
         }
         .act-text {
           color: #d4d4d4;
@@ -377,7 +376,7 @@ export default function PublicDashboard() {
         .cta-section {
           text-align: center;
           padding: 80px 0;
-          background: radial-gradient(circle at center, rgba(99,102,241,0.1) 0%, transparent 60%);
+          background: radial-gradient(circle at center, rgba(34,197,94,0.1) 0%, transparent 60%);
         }
         .cta-section h2 { font-size: 40px; margin-bottom: 16px; letter-spacing: -1px; }
         .cta-section p { color: #a3a3a3; font-size: 18px; margin-bottom: 40px; }

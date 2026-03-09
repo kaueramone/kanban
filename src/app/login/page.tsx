@@ -32,7 +32,7 @@ export default function LoginPage() {
             <div className="login-card">
                 <div className="login-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="32" height="32" style={{ color: 'var(--primary)' }}><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>
-                    <h1 style={{ marginTop: 16, marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Kanban Pro Admin</h1>
+                    <h1 style={{ marginTop: 16, marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Kanban<span style={{ color: 'var(--primary)' }}>K</span> Admin</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Área restrita. Faça login para gerenciar.</p>
                 </div>
                 <form onSubmit={handleLogin}>

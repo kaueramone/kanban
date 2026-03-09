@@ -25,7 +25,7 @@ export default function Sidebar() {
                         <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
                         <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
                     </svg>
-                    <span>Kanban Pro</span>
+                    <div style={{ fontWeight: 800 }}>Kanban<span style={{ color: 'var(--accent)' }}>K</span></div>
                 </div>
             </div>
             <nav className="nav">
@@ -40,7 +40,7 @@ export default function Sidebar() {
             </nav>
             <div className="sidebar-footer">
                 <div className="user-info">
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Kanban Pro v1.0</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>KanbanK Admin</span>
                 </div>
             </div>
         </aside>
