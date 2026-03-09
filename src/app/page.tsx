@@ -7,6 +7,8 @@ export default function PublicDashboard() {
   const [projects, setProjects] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
   const [stats, setStats] = useState({ delivered: 0, tasks: 0 });
+  const [githubStats, setGithubStats] = useState<any>(null);
+  const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadPublicData(); }, []);
@@ -57,6 +59,18 @@ export default function PublicDashboard() {
       delivered: (completedProjs || 0) + 12, // + historical buffer
       tasks: (completedCards || 0) + 1450
     });
+
+    // 4. Load GitHub Data
+    try {
+      const [uRes, rRes] = await Promise.all([
+        fetch('https://api.github.com/users/kaueramone'),
+        fetch('https://api.github.com/users/kaueramone/repos?type=owner&sort=updated&per_page=4')
+      ]);
+      if (uRes.ok && rRes.ok) {
+        setGithubStats(await uRes.json());
+        setGithubRepos(await rRes.json());
+      }
+    } catch (e) { console.error('GitHub fetch error', e); }
 
     setLoading(false);
   }
@@ -137,6 +151,43 @@ export default function PublicDashboard() {
             ))}
           </div>
         </section>
+
+        {githubStats && (
+          <section className="github-section">
+            <div className="section-header">
+              <h2>GitHub & Open Source</h2>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" /></svg>
+            </div>
+            <div className="github-grid">
+              <div className="github-profile-card">
+                <img src={githubStats.avatar_url} alt="GitHub Avatar" className="gh-avatar" />
+                <div>
+                  <h3><a href={githubStats.html_url} target="_blank" rel="noreferrer">{githubStats.name || githubStats.login}</a></h3>
+                  <p>{githubStats.bio}</p>
+                  <div className="gh-stats">
+                    <span><strong>{githubStats.public_repos}</strong> Repos</span>
+                    <span><strong>{githubStats.followers}</strong> Followers</span>
+                  </div>
+                </div>
+              </div>
+              <div className="github-repos">
+                {githubRepos.map(r => (
+                  <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer" className="gh-repo-card">
+                    <div className="gh-repo-header">
+                      <h4>{r.name}</h4>
+                      {r.language && <span className="gh-lang"><span className="gh-lang-dot" /> {r.language}</span>}
+                    </div>
+                    <p>{r.description || 'No description provided.'}</p>
+                    <div className="gh-repo-meta">
+                      <span>★ {r.stargazers_count}</span>
+                      <span>Updated {(new Date(r.updated_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="cta-section">
           <h2>Want to see your project here?</h2>
@@ -373,6 +424,71 @@ export default function PublicDashboard() {
         }
         .act-item:last-child .act-text { padding-bottom: 0; }
 
+        .github-section { margin-bottom: 80px; }
+        .github-section .section-header svg { color: #22c55e; }
+        .github-grid {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+          gap: 24px;
+        }
+        .github-profile-card {
+          background: rgba(34, 197, 94, 0.05);
+          border: 1px solid rgba(34, 197, 94, 0.2);
+          border-radius: 16px;
+          padding: 32px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 16px;
+        }
+        .gh-avatar {
+          width: 96px;
+          height: 96px;
+          border-radius: 50%;
+          border: 2px solid #22c55e;
+          padding: 4px;
+        }
+        .github-profile-card h3 { margin: 0 0 8px; font-size: 20px; }
+        .github-profile-card h3 a { color: #fff; text-decoration: none; transition: color 0.2s; }
+        .github-profile-card h3 a:hover { color: #22c55e; }
+        .github-profile-card p { color: #a3a3a3; font-size: 14px; line-height: 1.5; margin: 0; }
+        .gh-stats { display: flex; gap: 16px; margin-top: 8px; font-size: 13px; color: #a3a3a3; justify-content: center; }
+        .gh-stats strong { color: #fff; }
+        
+        .github-repos {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        .gh-repo-card {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 12px;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          text-decoration: none;
+          transition: transform 0.2s, border-color 0.2s;
+        }
+        .gh-repo-card:hover { transform: translateY(-2px); border-color: rgba(34, 197, 94, 0.3); }
+        .gh-repo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .gh-repo-header h4 { color: #fff; margin: 0; font-size: 16px; word-break: break-all; padding-right: 8px; }
+        .gh-lang { font-size: 11px; color: #a3a3a3; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .gh-lang-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; }
+        .gh-repo-card p {
+          color: #737373;
+          font-size: 13px;
+          line-height: 1.5;
+          margin: 0 0 16px;
+          flex: 1;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .gh-repo-meta { display: flex; gap: 12px; font-size: 12px; color: #525252; }
+
         .cta-section {
           text-align: center;
           padding: 80px 0;
@@ -411,6 +527,8 @@ export default function PublicDashboard() {
           .act-item { flex-direction: column; gap: 8px; }
           .act-time { text-align: left; }
           .act-line { display: none; }
+          .github-grid { grid-template-columns: 1fr; }
+          .github-repos { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>
