@@ -62,15 +62,44 @@ export default function PublicDashboard() {
 
     // 4. Load GitHub Data
     try {
-      const [uRes, rRes] = await Promise.all([
-        fetch('https://api.github.com/users/kaueramone'),
-        fetch('https://api.github.com/users/kaueramone/repos?type=owner&sort=updated&per_page=4')
-      ]);
-      if (uRes.ok && rRes.ok) {
+      const uRes = await fetch('https://api.github.com/users/kaueramone');
+      if (uRes.ok) {
         setGithubStats(await uRes.json());
-        setGithubRepos(await rRes.json());
+      } else {
+        console.warn('GitHub User fetch failed:', uRes.status);
+        setGithubStats({
+          avatar_url: 'https://github.com/kaueramone.png',
+          html_url: 'https://github.com/kaueramone',
+          name: 'Kaue Ramone',
+          login: 'kaueramone',
+          bio: 'Desenvolvedor Full Stack especializado em Next.js e Supabase.',
+          public_repos: '50+',
+          followers: '20+'
+        });
       }
-    } catch (e) { console.error('GitHub fetch error', e); }
+    } catch (e) {
+      console.error('GitHub User network error:', e);
+      setGithubStats({
+        avatar_url: 'https://github.com/kaueramone.png',
+        html_url: 'https://github.com/kaueramone',
+        name: 'Kaue Ramone',
+        login: 'kaueramone',
+        bio: 'Desenvolvedor Full Stack',
+        public_repos: '50+',
+        followers: '20+'
+      });
+    }
+
+    try {
+      const rRes = await fetch('https://api.github.com/users/kaueramone/repos?type=owner&sort=updated&per_page=4');
+      if (rRes.ok) {
+        setGithubRepos(await rRes.json());
+      } else {
+        console.warn('GitHub Repos fetch failed:', rRes.status);
+      }
+    } catch (e) {
+      console.error('GitHub Repos network error:', e);
+    }
 
     setLoading(false);
   }
