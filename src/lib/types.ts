@@ -4,6 +4,7 @@ export interface Client {
     email: string;
     phone: string;
     company: string;
+    industry_name: string;
     avatar_url: string;
     notes: string;
     status: 'active' | 'inactive';
@@ -16,6 +17,8 @@ export interface Project {
     id: number;
     client_id: number | null;
     title: string;
+    public_name: string;
+    is_public: boolean;
     description: string;
     status: 'active' | 'paused' | 'completed' | 'archived';
     priority: Priority;

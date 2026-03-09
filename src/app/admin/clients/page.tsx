@@ -20,7 +20,7 @@ export default function ClientsPage() {
     const { toast } = useToast();
     const { confirm, ConfirmDialog } = useConfirm();
 
-    const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', avatar_url: '', notes: '', status: 'active' });
+    const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', industry_name: '', avatar_url: '', notes: '', status: 'active' });
 
     useEffect(() => { loadClients(); }, []);
 
@@ -33,10 +33,10 @@ export default function ClientsPage() {
     function openForm(client?: Client) {
         if (client) {
             setEditing(client);
-            setForm({ name: client.name, email: client.email, phone: client.phone, company: client.company, avatar_url: client.avatar_url, notes: client.notes, status: client.status });
+            setForm({ name: client.name, email: client.email, phone: client.phone, company: client.company, industry_name: client.industry_name || '', avatar_url: client.avatar_url, notes: client.notes, status: client.status });
         } else {
             setEditing(null);
-            setForm({ name: '', email: '', phone: '', company: '', avatar_url: '', notes: '', status: 'active' });
+            setForm({ name: '', email: '', phone: '', company: '', industry_name: '', avatar_url: '', notes: '', status: 'active' });
         }
         setShowModal(true);
     }
@@ -115,7 +115,10 @@ export default function ClientsPage() {
                         <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@exemplo.com" /></div>
                         <div className="form-group"><label>Telefone</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+55 11 9999-9999" /></div>
                     </div>
-                    <div className="form-group"><label>Empresa</label><input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Nome da empresa" /></div>
+                    <div className="form-row">
+                        <div className="form-group"><label>Empresa</label><input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Nome da empresa" /></div>
+                        <div className="form-group"><label>Nicho/Indústria (Público)</label><input value={form.industry_name} onChange={e => setForm({ ...form, industry_name: e.target.value })} placeholder="Ex: E-commerce, Saúde, etc" /></div>
+                    </div>
                     <div className="form-group"><label>URL do Avatar</label><input value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} placeholder="https://..." /></div>
                     <div className="form-group"><label>Status</label><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div>
                     <div className="form-group"><label>Notas</label><textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Observações" /></div>

@@ -168,7 +168,7 @@ export default function BoardPage() {
         <AppShell title={projectTitle}>
             <div className="board-header">
                 <div className="board-header-left">
-                    <button className="back-btn" onClick={() => router.push('/projects')}>
+                    <button className="back-btn" onClick={() => router.push('/admin/projects')}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
                         Projetos
                     </button>

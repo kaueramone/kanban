@@ -19,7 +19,7 @@ export default function ProjectsPage() {
     const { toast } = useToast();
     const { confirm, ConfirmDialog } = useConfirm();
 
-    const [form, setForm] = useState({ title: '', client_id: '', description: '', status: 'active', priority: 'medium', color: '#6366f1', deadline: '', budget: '' });
+    const [form, setForm] = useState({ title: '', public_name: '', is_public: true, client_id: '', description: '', status: 'active', priority: 'medium', color: '#6366f1', deadline: '', budget: '' });
 
     useEffect(() => { loadData(); }, []);
 
@@ -37,10 +37,10 @@ export default function ProjectsPage() {
     function openForm(project?: Project) {
         if (project) {
             setEditing(project);
-            setForm({ title: project.title, client_id: String(project.client_id || ''), description: project.description, status: project.status, priority: project.priority, color: project.color, deadline: project.deadline || '', budget: String(project.budget || '') });
+            setForm({ title: project.title, public_name: project.public_name || '', is_public: project.is_public ?? true, client_id: String(project.client_id || ''), description: project.description, status: project.status, priority: project.priority, color: project.color, deadline: project.deadline || '', budget: String(project.budget || '') });
         } else {
             setEditing(null);
-            setForm({ title: '', client_id: '', description: '', status: 'active', priority: 'medium', color: '#6366f1', deadline: '', budget: '' });
+            setForm({ title: '', public_name: '', is_public: true, client_id: '', description: '', status: 'active', priority: 'medium', color: '#6366f1', deadline: '', budget: '' });
         }
         setShowModal(true);
     }
@@ -99,7 +99,7 @@ export default function ProjectsPage() {
             ) : (
                 <div className="grid">
                     {projects.map(p => (
-                        <div key={p.id} className="grid-card" onClick={() => router.push(`/board/${p.id}`)}>
+                        <div key={p.id} className="grid-card" onClick={() => router.push(`/admin/board/${p.id}`)}>
                             <div className="project-color-bar" style={{ background: p.color }} />
                             <div className="grid-card-actions">
                                 <button onClick={e => { e.stopPropagation(); openForm(p); }}>
@@ -122,7 +122,16 @@ export default function ProjectsPage() {
 
             {showModal && (
                 <Modal title={editing ? 'Editar Projeto' : 'Novo Projeto'} onClose={() => setShowModal(false)}>
-                    <div className="form-group"><label>Título *</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Nome do projeto" /></div>
+                    <div className="form-group"><label>Título Interno *</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: E-commerce SuperMercadosX" /></div>
+                    <div className="form-row">
+                        <div className="form-group"><label>Nome Público</label><input value={form.public_name} onChange={e => setForm({ ...form, public_name: e.target.value })} placeholder="Ex: E-commerce Alimentício" /></div>
+                        <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                <input type="checkbox" checked={form.is_public} onChange={e => setForm({ ...form, is_public: e.target.checked })} style={{ width: '16px', height: '16px' }} />
+                                Exibir no Dashboard Público
+                            </label>
+                        </div>
+                    </div>
                     <div className="form-group"><label>Cliente</label><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}><option value="">Sem cliente</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                     <div className="form-group"><label>Descrição</label><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descrição do projeto" /></div>
                     <div className="form-row">
