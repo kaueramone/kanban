@@ -50,10 +50,12 @@ export default function ProjectsPage() {
         const data = { ...form, client_id: form.client_id ? Number(form.client_id) : null, budget: form.budget ? Number(form.budget) : null, deadline: form.deadline || null };
 
         if (editing) {
-            await supabase.from('kanban_projects').update(data).eq('id', editing.id);
+            const { error } = await supabase.from('kanban_projects').update(data).eq('id', editing.id);
+            if (error) return toast('Erro: ' + error.message, 'error');
             toast('Projeto atualizado!');
         } else {
-            const { data: newProj } = await supabase.from('kanban_projects').insert(data).select().single();
+            const { data: newProj, error } = await supabase.from('kanban_projects').insert(data).select().single();
+            if (error) return toast('Erro: ' + error.message, 'error');
             if (newProj) {
                 const cols = [
                     { project_id: newProj.id, title: 'Backlog', color: '#64748b', position: 0 },

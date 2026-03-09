@@ -44,10 +44,12 @@ export default function ClientsPage() {
     async function saveClient() {
         if (!form.name.trim()) return toast('Nome é obrigatório', 'error');
         if (editing) {
-            await supabase.from('kanban_clients').update(form).eq('id', editing.id);
+            const { error } = await supabase.from('kanban_clients').update(form).eq('id', editing.id);
+            if (error) return toast('Erro: ' + error.message, 'error');
             toast('Cliente atualizado!');
         } else {
-            await supabase.from('kanban_clients').insert(form);
+            const { error } = await supabase.from('kanban_clients').insert(form);
+            if (error) return toast('Erro: ' + error.message, 'error');
             toast('Cliente criado!');
         }
         setShowModal(false);
