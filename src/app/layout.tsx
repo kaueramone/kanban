@@ -3,8 +3,18 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "KanbanK",
-  description: "Sistema de gestão de projetos com Kanban board em Next.js e Supabase",
+  title: "KanbanK — Kaueramone",
+  description:
+    "Acompanhe em tempo real os projetos que Kaueramone está desenvolvendo. Dashboard público de gestão Kanban.",
+  openGraph: {
+    title: "KanbanK — O que Kaueramone está construindo agora?",
+    description:
+      "Dashboard público com projetos ativos, feed de atividade e integração GitHub de Kaueramone.",
+    url: "https://kanban.kaueramone.dev",
+    siteName: "KanbanK",
+    locale: "pt_BR",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

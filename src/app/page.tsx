@@ -1,565 +1,385 @@
-'use client';
+import { createServerSupabase } from '@/lib/supabase-server';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+export const revalidate = 300; // Revalida a cada 5 minutos
 
-export default function PublicDashboard() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [activity, setActivity] = useState<any[]>([]);
-  const [stats, setStats] = useState({ delivered: 0, tasks: 0 });
-  const [githubStats, setGithubStats] = useState<any>(null);
-  const [githubRepos, setGithubRepos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const ACTIVITY_POOL = [
+  'Progresso realizado em uma tarefa de desenvolvimento',
+  'Nova funcionalidade adicionada ao backlog do projeto',
+  'Revisão de código concluída com sucesso',
+  'Tarefa avançada para a próxima etapa do fluxo',
+  'Componente de interface desenvolvido e validado',
+  'Sprint atualizado com novas demandas do projeto',
+  'Integração entre módulos concluída',
+  'Refinamento de layout e experiência aplicado',
+  'Correção identificada e implementada',
+  'Build enviado para ambiente de homologação',
+];
 
-  useEffect(() => { loadPublicData(); }, []);
+function getPhase(progress: number): string {
+  if (progress === 0) return 'Kickoff';
+  if (progress <= 25) return 'Planejamento';
+  if (progress <= 55) return 'Desenvolvimento';
+  if (progress <= 80) return 'Refinamento';
+  return 'Finalização';
+}
 
-  async function loadPublicData() {
-    // 1. Load active public projects
-    const { data: pData } = await supabase.from('kanban_projects')
-      .select('id, public_name, status, kanban_clients(industry_name)')
-      .eq('is_public', true)
-      .eq('status', 'active');
+async function getData() {
+  const sb = createServerSupabase();
 
-    const projs = await Promise.all((pData || []).map(async (p: any) => {
-      const { data: cards } = await supabase.from('kanban_cards').select('id, kanban_columns(title)').eq('project_id', p.id);
-      const total = cards?.length || 0;
-      const done = cards?.filter(c => (c.kanban_columns as any)?.title === 'Concluído').length || 0;
-      const progress = total === 0 ? 0 : Math.round((done / total) * 100);
+  const ghHeaders: HeadersInit = process.env.GITHUB_TOKEN
+    ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+    : {};
 
-      return {
-        id: p.id,
-        name: p.public_name || 'Secret Project',
-        niche: p.kanban_clients?.industry_name || 'Tech',
-        progress
-      };
-    }));
+  const [projectsRes, activityRes, cardsCountRes, projsCountRes, ghUser, ghRepos] =
+    await Promise.all([
+      sb
+        .from('kanban_projects')
+        .select('id, public_name, deadline, kanban_clients(industry_name)')
+        .eq('is_public', true)
+        .eq('status', 'active'),
+      sb
+        .from('kanban_activity_log')
+        .select('id, created_at, action')
+        .order('created_at', { ascending: false })
+        .limit(10),
+      sb.from('kanban_cards').select('id', { count: 'exact', head: true }),
+      sb
+        .from('kanban_projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'completed'),
+      fetch('https://api.github.com/users/kaueramone', {
+        headers: ghHeaders,
+        next: { revalidate: 3600 },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch(
+        'https://api.github.com/users/kaueramone/repos?type=owner&sort=updated&per_page=4',
+        { headers: ghHeaders, next: { revalidate: 3600 } }
+      )
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => []),
+    ]);
 
-    setProjects(projs);
-
-    // 2. Load recent activity and anonymize
-    const { data: aData } = await supabase.from('kanban_activity_log')
-      .select('id, created_at, action, details')
-      .order('created_at', { ascending: false })
-      .limit(8);
-
-    // Abstract the details.
-    const anonActivity = (aData || []).map(a => {
-      let text = a.details;
-      if (a.action === 'card_moved') text = 'Progress made on a task';
-      if (a.action === 'card_created') text = 'New feature added to the scope';
-      return { ...a, details: text };
-    });
-    setActivity(anonActivity);
-
-    // 3. Fake/Real Stats
-    const { count: completedCards } = await supabase.from('kanban_cards').select('id', { count: 'exact', head: true });
-    const { count: completedProjs } = await supabase.from('kanban_projects').select('id', { count: 'exact', head: true }).eq('status', 'completed');
-
-    setStats({
-      delivered: (completedProjs || 0) + 12, // + historical buffer
-      tasks: (completedCards || 0) + 1450
-    });
-
-    // 4. Load GitHub Data
-    try {
-      const uRes = await fetch('https://api.github.com/users/kaueramone');
-      if (uRes.ok) {
-        setGithubStats(await uRes.json());
-      } else {
-        console.warn('GitHub User fetch failed:', uRes.status);
-        setGithubStats({
-          avatar_url: 'https://github.com/kaueramone.png',
-          html_url: 'https://github.com/kaueramone',
-          name: 'Kaue Ramone',
-          login: 'kaueramone',
-          bio: 'Desenvolvedor Full Stack especializado em Next.js e Supabase.',
-          public_repos: '50+',
-          followers: '20+'
-        });
-      }
-    } catch (e) {
-      console.error('GitHub User network error:', e);
-      setGithubStats({
-        avatar_url: 'https://github.com/kaueramone.png',
-        html_url: 'https://github.com/kaueramone',
-        name: 'Kaue Ramone',
-        login: 'kaueramone',
-        bio: 'Desenvolvedor Full Stack',
-        public_repos: '50+',
-        followers: '20+'
-      });
-    }
-
-    try {
-      const rRes = await fetch('https://api.github.com/users/kaueramone/repos?type=owner&sort=updated&per_page=4');
-      if (rRes.ok) {
-        setGithubRepos(await rRes.json());
-      } else {
-        console.warn('GitHub Repos fetch failed:', rRes.status);
-      }
-    } catch (e) {
-      console.error('GitHub Repos network error:', e);
-    }
-
-    setLoading(false);
+  // Busca todos os cards dos projetos públicos de uma vez só (sem N+1)
+  const projectIds = (projectsRes.data || []).map((p: any) => p.id);
+  let allCards: any[] = [];
+  if (projectIds.length > 0) {
+    const { data: cards } = await sb
+      .from('kanban_cards')
+      .select('id, project_id, kanban_columns!inner(position)')
+      .in('project_id', projectIds);
+    allCards = cards || [];
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#fff' }}>
-      <div className="spinner" />
-    </div>
-  );
+  // Agrupa cards por projeto
+  const cardsByProject: Record<string, any[]> = {};
+  allCards.forEach((c) => {
+    if (!cardsByProject[c.project_id]) cardsByProject[c.project_id] = [];
+    cardsByProject[c.project_id].push(c);
+  });
+
+  // Calcula progresso usando posição da coluna (mais robusto que título)
+  const projects = (projectsRes.data || []).map((p: any) => {
+    const cards = cardsByProject[p.id] || [];
+    const total = cards.length;
+    let progress = 0;
+    if (total > 0) {
+      const maxPos = Math.max(
+        ...cards.map((c) => (c.kanban_columns as any).position as number)
+      );
+      const done = cards.filter(
+        (c) => (c.kanban_columns as any).position === maxPos
+      ).length;
+      progress = Math.round((done / total) * 100);
+    }
+
+    const daysLeft = p.deadline
+      ? Math.ceil(
+          (new Date(p.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        )
+      : null;
+
+    return {
+      id: p.id,
+      name: p.public_name || 'Projeto Confidencial',
+      niche: (p.kanban_clients as any)?.industry_name || 'Tech',
+      progress,
+      daysLeft,
+    };
+  });
+
+  // Anonimiza atividades com pool rotativo
+  const activity = (activityRes.data || []).map((a: any, i: number) => ({
+    id: a.id,
+    created_at: a.created_at,
+    text: ACTIVITY_POOL[i % ACTIVITY_POOL.length],
+  }));
+
+  const offsetProjects = parseInt(process.env.STATS_OFFSET_PROJECTS || '12');
+  const offsetTasks = parseInt(process.env.STATS_OFFSET_TASKS || '1450');
+
+  const stats = {
+    delivered: (projsCountRes.count || 0) + offsetProjects,
+    tasks: (cardsCountRes.count || 0) + offsetTasks,
+  };
+
+  const fallbackGh = {
+    avatar_url: 'https://github.com/kaueramone.png',
+    html_url: 'https://github.com/kaueramone',
+    name: 'Kaue Ramone',
+    login: 'kaueramone',
+    bio: 'Desenvolvedor Full Stack especializado em Next.js e Supabase.',
+    public_repos: '50+',
+    followers: '20+',
+  };
+
+  return {
+    projects,
+    activity,
+    stats,
+    githubStats: ghUser || fallbackGh,
+    githubRepos: Array.isArray(ghRepos) ? ghRepos : [],
+  };
+}
+
+export default async function PublicDashboard() {
+  const { projects, activity, stats, githubStats, githubRepos } = await getData();
+  const year = new Date().getFullYear();
 
   return (
-    <div className="public-wrap">
-      <nav className="public-nav">
-        <div className="nav-logo">Kanban<span>K</span></div>
-        <div className="nav-links">
-          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer">Portfolio</a>
-          <a href="/login" className="login-link">Admin</a>
+    <div className="lp-wrap">
+      <div className="lp-grid-bg" />
+
+      {/* Nav */}
+      <nav className="lp-nav">
+        <div className="lp-nav-inner">
+          <div className="lp-logo">
+            Kanban<span>K</span>
+          </div>
+          <div className="lp-nav-links">
+            <a href="https://kaueramone.dev" target="_blank" rel="noreferrer">
+              Portfolio
+            </a>
+            <a href="/login" className="lp-admin-link">
+              Admin
+            </a>
+          </div>
         </div>
       </nav>
 
-      <main className="public-main">
-        <header className="hero">
-          <div className="hero-badge">Live Tracking</div>
-          <h1>What is Kaueramone<br /><span className="highlight">building right now?</span></h1>
-          <p>Follow my development process and the projects currently being forged. Full transparency in the workflow.</p>
-          <div className="hero-stats">
-            <div className="stat-box">
-              <h3>{stats.delivered}</h3>
-              <span>Delivered Projects</span>
+      <main className="lp-main">
+        {/* Hero */}
+        <header className="lp-hero">
+          <div className="lp-live-badge">
+            <span className="lp-live-dot" />
+            Live Tracking
+          </div>
+
+          <h1 className="lp-hero-title">
+            O que Kaueramone está
+            <br />
+            <span className="lp-hero-highlight">construindo agora?</span>
+          </h1>
+
+          <p className="lp-hero-sub">
+            Acompanhe meu processo de desenvolvimento e os projetos sendo forjados em
+            tempo real. Transparência total no fluxo de trabalho.
+          </p>
+
+          <div className="lp-stats-row">
+            <div className="lp-stat-box">
+              <span className="lp-stat-num">{stats.delivered}+</span>
+              <span className="lp-stat-label">Projetos Entregues</span>
             </div>
-            <div className="stat-box">
-              <h3>{stats.tasks}</h3>
-              <span>Completed Tasks</span>
+            <div className="lp-stat-box">
+              <span className="lp-stat-num">{stats.tasks}+</span>
+              <span className="lp-stat-label">Tarefas Concluídas</span>
             </div>
-            <div className="stat-box">
-              <h3>+50k</h3>
-              <span>Lines of Code Written</span>
+            <div className="lp-stat-box">
+              <span className="lp-stat-num">+50k</span>
+              <span className="lp-stat-label">Linhas de Código</span>
             </div>
           </div>
         </header>
 
-        <section className="dashboard-section">
-          <div className="section-header">
-            <h2>Active Projects in the Oven</h2>
-            <div className="pulsing-dot" />
+        {/* Projetos ativos */}
+        <section className="lp-section">
+          <div className="lp-section-header">
+            <h2>Projetos no Forno</h2>
+            <span className="lp-pulsing-dot" />
           </div>
 
-          <div className="projects-grid">
+          <div className="lp-projects-grid">
             {projects.length === 0 ? (
-              <div className="empty-projects">No active public projects at the moment.</div>
-            ) : projects.map(p => (
-              <div key={p.id} className="pub-card">
-                <div className="pub-card-niche">{p.niche}</div>
-                <h3 className="pub-card-title">{p.name}</h3>
-                <div className="pub-card-progress">
-                  <div className="progress-header">
-                    <span>Development Progress</span>
-                    <span>{p.progress}%</span>
+              <div className="lp-empty">
+                Nenhum projeto público ativo no momento.
+              </div>
+            ) : (
+              projects.map((p) => (
+                <div key={p.id} className="lp-project-card">
+                  <div className="lp-card-glow" />
+                  <div className="lp-card-top">
+                    <span className="lp-niche-tag">{p.niche}</span>
+                    <span className="lp-phase-tag">{getPhase(p.progress)}</span>
                   </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${p.progress}%` }} />
+                  <h3 className="lp-project-name">{p.name}</h3>
+                  <div className="lp-progress-area">
+                    <div className="lp-progress-header">
+                      <span>Progresso</span>
+                      <span className="lp-progress-pct">{p.progress}%</span>
+                    </div>
+                    <div className="lp-progress-track">
+                      <div
+                        className="lp-progress-fill"
+                        style={{ width: `${p.progress}%` }}
+                      />
+                    </div>
                   </div>
+                  {p.daysLeft !== null && (
+                    <div
+                      className={`lp-deadline${p.daysLeft <= 7 ? ' lp-deadline-urgent' : ''}`}
+                    >
+                      {p.daysLeft > 0
+                        ? `${p.daysLeft} dias restantes`
+                        : p.daysLeft === 0
+                          ? 'Entrega hoje'
+                          : `Prazo encerrado há ${Math.abs(p.daysLeft)} dias`}
+                    </div>
+                  )}
                 </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* Feed de atividade */}
+        <section className="lp-activity-section">
+          <h2 className="lp-activity-title">Feed de Atividade</h2>
+          <div>
+            {activity.map((a, i) => (
+              <div key={a.id} className="lp-act-item">
+                <span className="lp-act-time">
+                  {new Date(a.created_at).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+                <div className="lp-act-line">
+                  <div
+                    className={`lp-act-dot${i === 0 ? ' lp-act-dot-pulse' : ''}`}
+                  />
+                </div>
+                <span className="lp-act-text">{a.text}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="activity-section">
-          <h2>Activity Feed</h2>
-          <div className="activity-list">
-            {activity.map(a => (
-              <div key={a.id} className="act-item">
-                <div className="act-time">{new Date(a.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
-                <div className="act-line"><div className="act-dot" /></div>
-                <div className="act-text">{a.details}</div>
+        {/* GitHub */}
+        <section className="lp-github-section">
+          <div className="lp-section-header">
+            <h2>GitHub & Open Source</h2>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style={{ color: '#00ff88' }}
+            >
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+            </svg>
+          </div>
+
+          <div className="lp-github-grid">
+            <div className="lp-gh-profile">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={githubStats.avatar_url}
+                alt={githubStats.name || 'GitHub Avatar'}
+                className="lp-gh-avatar"
+              />
+              <h3>
+                <a href={githubStats.html_url} target="_blank" rel="noreferrer">
+                  {githubStats.name || githubStats.login}
+                </a>
+              </h3>
+              <p>{githubStats.bio}</p>
+              <div className="lp-gh-meta">
+                <span>
+                  <strong>{githubStats.public_repos}</strong> Repos
+                </span>
+                <span>
+                  <strong>{githubStats.followers}</strong> Seguidores
+                </span>
               </div>
-            ))}
+            </div>
+
+            <div className="lp-gh-repos">
+              {githubRepos.map((r: any) => (
+                <a
+                  key={r.id}
+                  href={r.html_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="lp-gh-repo"
+                >
+                  <div className="lp-gh-repo-top">
+                    <h4>{r.name}</h4>
+                    {r.language && (
+                      <span className="lp-gh-lang">
+                        <span className="lp-lang-dot" />
+                        {r.language}
+                      </span>
+                    )}
+                  </div>
+                  <p>{r.description || 'Sem descrição.'}</p>
+                  <div className="lp-gh-repo-footer">
+                    <span>★ {r.stargazers_count}</span>
+                    <span>
+                      {new Date(r.updated_at).toLocaleDateString('pt-BR', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </section>
 
-        {githubStats && (
-          <section className="github-section">
-            <div className="section-header">
-              <h2>GitHub & Open Source</h2>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" /></svg>
-            </div>
-            <div className="github-grid">
-              <div className="github-profile-card">
-                <img src={githubStats.avatar_url} alt="GitHub Avatar" className="gh-avatar" />
-                <div>
-                  <h3><a href={githubStats.html_url} target="_blank" rel="noreferrer">{githubStats.name || githubStats.login}</a></h3>
-                  <p>{githubStats.bio}</p>
-                  <div className="gh-stats">
-                    <span><strong>{githubStats.public_repos}</strong> Repos</span>
-                    <span><strong>{githubStats.followers}</strong> Followers</span>
-                  </div>
-                </div>
-              </div>
-              <div className="github-repos">
-                {githubRepos.map(r => (
-                  <a key={r.id} href={r.html_url} target="_blank" rel="noreferrer" className="gh-repo-card">
-                    <div className="gh-repo-header">
-                      <h4>{r.name}</h4>
-                      {r.language && <span className="gh-lang"><span className="gh-lang-dot" /> {r.language}</span>}
-                    </div>
-                    <p>{r.description || 'No description provided.'}</p>
-                    <div className="gh-repo-meta">
-                      <span>★ {r.stargazers_count}</span>
-                      <span>Updated {(new Date(r.updated_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="cta-section">
-          <h2>Want to see your project here?</h2>
-          <p>Let's turn your idea into a digital system of excellence.</p>
-          <a href="https://kaueramone.dev" target="_blank" rel="noreferrer" className="btn-glow">Start Project</a>
+        {/* CTA */}
+        <section className="lp-cta">
+          <div className="lp-cta-glow" />
+          <h2>Vamos construir algo juntos?</h2>
+          <p>Transformo suas ideias em sistemas digitais de alta performance.</p>
+          <a
+            href="https://kaueramone.dev"
+            target="_blank"
+            rel="noreferrer"
+            className="lp-cta-btn"
+          >
+            Falar com Kaue
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </a>
         </section>
       </main>
 
-      <footer className="public-footer">
-        <p>© {new Date().getFullYear()} Kaueramone.dev. All rights reserved.</p>
+      <footer className="lp-footer">
+        <p>© {year} Kaueramone.dev — Todos os direitos reservados.</p>
       </footer>
-
-      <style jsx>{`
-        .public-wrap {
-          background-color: #030303;
-          color: #ededed;
-          min-height: 100vh;
-          font-family: 'Inter', sans-serif;
-        }
-        .public-nav {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 24px 5%;
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-        .nav-logo {
-          font-weight: 800;
-          font-size: 20px;
-          letter-spacing: -0.5px;
-        }
-        .nav-logo span {
-          color: #22c55e;
-        }
-        .nav-links a {
-          color: #a3a3a3;
-          text-decoration: none;
-          margin-left: 24px;
-          font-size: 14px;
-          font-weight: 500;
-          transition: color 0.2s;
-        }
-        .nav-links a:hover { color: #fff; }
-        .login-link { padding: 8px 16px; border-radius: 6px; background: rgba(255,255,255,0.05); }
-        .login-link:hover { background: rgba(255,255,255,0.1); }
-
-        .public-main {
-          max-width: 1000px;
-          margin: 0 auto;
-          padding: 60px 5% 100px;
-        }
-        .hero {
-          text-align: center;
-          margin-bottom: 80px;
-        }
-        .hero-badge {
-          display: inline-block;
-          padding: 6px 16px;
-          background: rgba(34, 197, 94, 0.1);
-          color: #4ade80;
-          border-radius: 100px;
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 24px;
-          border: 1px solid rgba(34, 197, 94, 0.2);
-        }
-        .hero h1 {
-          font-size: 56px;
-          line-height: 1.1;
-          font-weight: 800;
-          margin-bottom: 24px;
-          letter-spacing: -1.5px;
-        }
-        .highlight {
-          background: linear-gradient(to right, #22c55e, #10b981, #047857);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .hero p {
-          color: #a3a3a3;
-          font-size: 20px;
-          max-width: 600px;
-          margin: 0 auto 48px;
-          line-height: 1.6;
-        }
-        .hero-stats {
-          display: flex;
-          justify-content: center;
-          gap: 24px;
-          flex-wrap: wrap;
-        }
-        .stat-box {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.05);
-          padding: 24px 40px;
-          border-radius: 16px;
-          backdrop-filter: blur(10px);
-        }
-        .stat-box h3 {
-          font-size: 32px;
-          font-weight: 700;
-          margin: 0 0 8px;
-        }
-        .stat-box span {
-          color: #737373;
-          font-size: 13px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          font-weight: 600;
-        }
-
-        .dashboard-section {
-          margin-bottom: 80px;
-        }
-        .section-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 32px;
-        }
-        .section-header h2 {
-          font-size: 24px;
-          font-weight: 600;
-          margin: 0;
-        }
-        .pulsing-dot {
-          width: 8px;
-          height: 8px;
-          background: #22c55e;
-          border-radius: 50%;
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        .projects-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 24px;
-        }
-        .pub-card {
-          background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 16px;
-          padding: 24px;
-          position: relative;
-          overflow: hidden;
-          transition: transform 0.3s, border-color 0.3s;
-        }
-        .pub-card:hover {
-          transform: translateY(-4px);
-          border-color: rgba(34, 197, 94, 0.3);
-        }
-        .pub-card-niche {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #4ade80;
-          font-weight: 700;
-          margin-bottom: 8px;
-        }
-        .pub-card-title {
-          font-size: 20px;
-          font-weight: 600;
-          margin: 0 0 24px;
-        }
-        .progress-header {
-          display: flex;
-          justify-content: space-between;
-          font-size: 13px;
-          color: #a3a3a3;
-          margin-bottom: 8px;
-          font-weight: 500;
-        }
-        .progress-track {
-          height: 6px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #22c55e, #10b981);
-          border-radius: 4px;
-          transition: width 1s ease-out;
-        }
-
-        .activity-section {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 24px;
-          padding: 40px;
-          margin-bottom: 80px;
-        }
-        .activity-section h2 { margin-top: 0; margin-bottom: 32px; font-size: 24px; }
-        .act-item {
-          display: flex;
-          gap: 24px;
-          margin-bottom: 24px;
-        }
-        .act-item:last-child { margin-bottom: 0; }
-        .act-time {
-          color: #737373;
-          font-size: 13px;
-          min-width: 140px;
-          text-align: right;
-          padding-top: 2px;
-        }
-        .act-line {
-          position: relative;
-          width: 2px;
-          background: rgba(255,255,255,0.05);
-        }
-        .act-dot {
-          position: absolute;
-          top: 6px;
-          left: -4px;
-          width: 10px;
-          height: 10px;
-          background: #22c55e;
-          border-radius: 50%;
-          box-shadow: 0 0 10px #22c55e;
-        }
-        .act-text {
-          color: #d4d4d4;
-          font-size: 15px;
-          padding-bottom: 24px;
-        }
-        .act-item:last-child .act-text { padding-bottom: 0; }
-
-        .github-section { margin-bottom: 80px; }
-        .github-section .section-header svg { color: #22c55e; }
-        .github-grid {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          gap: 24px;
-        }
-        .github-profile-card {
-          background: rgba(34, 197, 94, 0.05);
-          border: 1px solid rgba(34, 197, 94, 0.2);
-          border-radius: 16px;
-          padding: 32px 24px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 16px;
-        }
-        .gh-avatar {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
-          border: 2px solid #22c55e;
-          padding: 4px;
-        }
-        .github-profile-card h3 { margin: 0 0 8px; font-size: 20px; }
-        .github-profile-card h3 a { color: #fff; text-decoration: none; transition: color 0.2s; }
-        .github-profile-card h3 a:hover { color: #22c55e; }
-        .github-profile-card p { color: #a3a3a3; font-size: 14px; line-height: 1.5; margin: 0; }
-        .gh-stats { display: flex; gap: 16px; margin-top: 8px; font-size: 13px; color: #a3a3a3; justify-content: center; }
-        .gh-stats strong { color: #fff; }
-        
-        .github-repos {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-        .gh-repo-card {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 12px;
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          text-decoration: none;
-          transition: transform 0.2s, border-color 0.2s;
-        }
-        .gh-repo-card:hover { transform: translateY(-2px); border-color: rgba(34, 197, 94, 0.3); }
-        .gh-repo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .gh-repo-header h4 { color: #fff; margin: 0; font-size: 16px; word-break: break-all; padding-right: 8px; }
-        .gh-lang { font-size: 11px; color: #a3a3a3; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-        .gh-lang-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; }
-        .gh-repo-card p {
-          color: #737373;
-          font-size: 13px;
-          line-height: 1.5;
-          margin: 0 0 16px;
-          flex: 1;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .gh-repo-meta { display: flex; gap: 12px; font-size: 12px; color: #525252; }
-
-        .cta-section {
-          text-align: center;
-          padding: 80px 0;
-          background: radial-gradient(circle at center, rgba(34,197,94,0.1) 0%, transparent 60%);
-        }
-        .cta-section h2 { font-size: 40px; margin-bottom: 16px; letter-spacing: -1px; }
-        .cta-section p { color: #a3a3a3; font-size: 18px; margin-bottom: 40px; }
-        .btn-glow {
-          display: inline-block;
-          background: #fff;
-          color: #000;
-          text-decoration: none;
-          padding: 16px 32px;
-          border-radius: 100px;
-          font-weight: 600;
-          font-size: 16px;
-          box-shadow: 0 0 30px rgba(255,255,255,0.2);
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-glow:hover {
-          transform: scale(1.05);
-          box-shadow: 0 0 50px rgba(255,255,255,0.4);
-        }
-
-        .public-footer {
-          text-align: center;
-          padding: 32px 5%;
-          border-top: 1px solid rgba(255,255,255,0.05);
-          color: #525252;
-          font-size: 13px;
-        }
-
-        @media (max-width: 768px) {
-          .hero h1 { font-size: 40px; }
-          .hero p { font-size: 16px; }
-          .act-item { flex-direction: column; gap: 8px; }
-          .act-time { text-align: left; }
-          .act-line { display: none; }
-          .github-grid { grid-template-columns: 1fr; }
-          .github-repos { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }

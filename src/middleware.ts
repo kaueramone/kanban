@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-    const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-    const sessionUser = request.cookies.get('kanban_admin_session')?.value;
+    const sessionToken = request.cookies.get('kanban_admin_session')?.value;
+    const validToken = process.env.ADMIN_SECRET_TOKEN;
 
-    if (isAdminRoute && sessionUser !== 'true') {
+    if (!sessionToken || !validToken || sessionToken !== validToken) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
